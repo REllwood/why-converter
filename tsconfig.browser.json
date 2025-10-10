@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/browser",
+    "lib": ["ES2020", "DOM"],
+    "types": []
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "src/utils/node.ts",
+    "src/core/VideoProcessorNode.ts",
+    "src/exporters/PDFExporterNode.ts",
+    "src/exporters/GIFExporterNode.ts",
+    "src/exporters/ImageExporterNode.ts",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/**/__tests__/**",
+    "node_modules",
+    "dist"
+  ]
+}
+

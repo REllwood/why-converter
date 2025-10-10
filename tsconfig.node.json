@@ -1,0 +1,30 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/node",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "noEmitOnError": false
+  },
+  "include": [
+    "src/index.node.ts",
+    "src/config.ts",
+    "src/core/types.ts",
+    "src/core/FrameExtractor.ts",
+    "src/core/VideoProcessor.ts",
+    "src/core/VideoProcessorNode.ts",
+    "src/exporters/PDFExporter.ts",
+    "src/exporters/PDFExporterNode.ts",
+    "src/exporters/GIFExporter.ts",
+    "src/exporters/GIFExporterNode.ts",
+    "src/exporters/ImageExporter.ts",
+    "src/exporters/ImageExporterNode.ts",
+    "src/utils/node.ts",
+    "src/types/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
+

@@ -1,0 +1,41 @@
+# Source files
+src/
+*.ts
+!*.d.ts
+
+# Config files
+tsconfig*.json
+webpack.config.js
+jest.config.js
+
+# Tests
+**/__tests__/
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+
+# Development
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Examples (include only as documentation)
+examples/output/
+
+# Documentation
+*.plan.md
+
+# Git
+.git/
+.gitignore
+
+# Misc
+.DS_Store
+*.log
+npm-debug.log*
+node_modules/
+coverage/
+
