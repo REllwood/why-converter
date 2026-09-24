@@ -395,8 +395,8 @@ MIT License - see LICENSE file for details
 - [fluent-ffmpeg](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg) - FFmpeg wrapper for Node.js
 - [PDFKit](https://pdfkit.org/) - PDF generation for Node.js
 - [jsPDF](https://github.com/parallax/jsPDF) - PDF generation for browsers
-- [gifencoder](https://github.com/eugeneware/gifencoder) - GIF encoding for Node.js
-- [gif.js](https://github.com/jnordberg/gif.js) - GIF encoding for browsers
+- [gifenc](https://github.com/mattdesl/gifenc) - GIF encoding for Node.js and browsers
+- [pngjs](https://github.com/pngjs/pngjs) - PNG decoding for Node.js
 
 ## 🔗 Links
 

@@ -1,11 +1,10 @@
-import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 import { PNG } from 'pngjs';
-import { GIFExporter } from './GIFExporter';
+import { GIFExporter, GIFFrameEncoder } from './GIFExporter';
 import { ConversionOptions, VideoMetadata } from '../core/types';
 import { withContext } from '../core/errors';
 
 /**
- * Node.js implementation of GIF exporter using gifenc
+ * Node.js implementation of GIF exporter
  *
  * Frames are PNGs from ffmpeg, decoded to raw RGBA pixels with pngjs,
  * so no native modules are needed.
@@ -25,12 +24,8 @@ export class GIFExporterNode extends GIFExporter {
       throw new Error('No frames to export');
     }
 
-    const encoder = GIFEncoder();
-    const delay = this.getFrameDelay() * 10; // gifenc expects milliseconds
-    const repeat = this.getRepeat();
-    const maxColors = this.getMaxColors();
-
     // Size the GIF from the first frame's decoded pixels rather than the reported frame size
+    let encoder: GIFFrameEncoder | undefined;
     let width = 0;
     let height = 0;
 
@@ -39,17 +34,16 @@ export class GIFExporterNode extends GIFExporter {
       try {
         const image = PNG.sync.read(frames[i].data);
 
-        if (i === 0) {
+        if (!encoder) {
           ({ width, height } = image);
+          encoder = this.createEncoder(width, height);
         } else if (image.width !== width || image.height !== height) {
           throw new Error(
             `Frame is ${image.width}x${image.height} but the GIF is ${width}x${height}`
           );
         }
 
-        const palette = quantize(image.data, maxColors);
-        const index = applyPalette(image.data, palette);
-        encoder.writeFrame(index, width, height, { palette, delay, repeat });
+        encoder.addFrame(image.data);
       } catch (error) {
         throw withContext(`Failed to add frame ${i} to GIF`, error);
       }
@@ -61,7 +55,6 @@ export class GIFExporterNode extends GIFExporter {
       }
     }
 
-    encoder.finish();
-    return Buffer.from(encoder.bytes());
+    return Buffer.from(encoder!.finish());
   }
 }
