@@ -72,13 +72,13 @@ export interface BrowserConversion {
   error?: string;
   metadata: VideoMetadata;
   progress: number[];
-  blob?: { type: string; bytes: number[] };
-  files?: Array<{ name: string; type: string; bytes: number[] }>;
+  blob?: { type: string; base64: string };
+  files?: Array<{ name: string; type: string; base64: string }>;
 }
 
 /**
  * Fetch a video into a Blob inside the page and convert it with the bundle,
- * returning the output bytes for inspection
+ * returning the output bytes (as base64, which transfers far faster than arrays)
  */
 export function convertInBrowser(
   page: Page,
@@ -88,7 +88,13 @@ export function convertInBrowser(
 ): Promise<BrowserConversion> {
   return page.evaluate(
     async ({ videoUrl, options, entry }) => {
-      const toBytes = async (blob: Blob) => Array.from(new Uint8Array(await blob.arrayBuffer()));
+      const toBase64 = (blob: Blob) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
       const video = await (await fetch(videoUrl)).blob();
       const progress: number[] = [];
       const lib = (window as any).WhyConverter;
@@ -101,10 +107,10 @@ export function convertInBrowser(
         error: result.error,
         metadata: result.metadata,
         progress,
-        blob: result.blob ? { type: result.blob.type, bytes: await toBytes(result.blob) } : undefined,
+        blob: result.blob ? { type: result.blob.type, base64: await toBase64(result.blob) } : undefined,
         files: result.files
           ? await Promise.all(
-              result.files.map(async (file: File) => ({ name: file.name, type: file.type, bytes: await toBytes(file) }))
+              result.files.map(async (file: File) => ({ name: file.name, type: file.type, base64: await toBase64(file) }))
             )
           : undefined
       };
