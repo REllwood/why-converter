@@ -4,6 +4,7 @@ import {
   VideoInput
 } from './core/types';
 import { DEFAULT_CONFIG } from './config';
+import { createProgressReporter } from './core/progress';
 import { VideoProcessorBrowser } from './core/VideoProcessorBrowser';
 import { PDFExporterBrowser } from './exporters/PDFExporterBrowser';
 import { GIFExporterBrowser } from './exporters/GIFExporterBrowser';
@@ -37,13 +38,14 @@ export async function convertVideo(
     height: options.height,
     maintainAspectRatio: options.maintainAspectRatio !== false,
     compression: options.compression || DEFAULT_CONFIG.compression,
-    onProgress: options.onProgress,
+    onProgress: createProgressReporter(options.onProgress),
     onComplete: options.onComplete,
     onError: options.onError
   };
 
   try {
     const result = await processVideo(input, fullOptions);
+    fullOptions.onProgress?.(100);
 
     if (fullOptions.onComplete) {
       fullOptions.onComplete(result);

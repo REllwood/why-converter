@@ -125,16 +125,11 @@ export abstract class VideoProcessor {
       this.options.onProgress(0);
     }
 
-    // Extract frames
+    // Extract frames (reports 0-50%; exporting reports 50-100%)
     const frames = await this.extractFrames(timestamps, dimensions);
 
     // Update metadata
     this.metadata.extractedFrames = frames.length;
-
-    // Report completion
-    if (this.options.onProgress) {
-      this.options.onProgress(100);
-    }
 
     return {
       frames,
