@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import ffmpeg from 'fluent-ffmpeg';
+import { ImageFormat } from '../core/types';
 
 let ffmpegPath: string | undefined;
 
@@ -81,14 +82,38 @@ export function getVideoMetadata(videoPath: string): Promise<{
 }
 
 /**
+ * Map 1-100 quality onto ffmpeg's JPEG qscale, which runs from 2 (best) to 31 (worst)
+ */
+export function jpegQscale(quality: number): number {
+  return Math.round(2 + ((100 - quality) * 29) / 99);
+}
+
+/**
+ * ffmpeg output options for encoding a single frame in the given format
+ */
+function frameEncodingOptions(format: ImageFormat, quality: number): string[] {
+  switch (format) {
+    case 'jpeg':
+      return ['-q:v', String(jpegQscale(quality))];
+    case 'webp':
+      return ['-c:v', 'libwebp', '-quality', String(quality)];
+    default:
+      return [];
+  }
+}
+
+/**
  * Extract frames from video at specific timestamps
  */
 export function extractFrames(
   videoPath: string,
   timestamps: number[],
   outputDir: string,
-  options: { width?: number; height?: number; quality?: number } = {}
+  options: { width?: number; height?: number; format?: ImageFormat; quality?: number } = {}
 ): Promise<string[]> {
+  const format = options.format || 'png';
+  const encodingOptions = frameEncodingOptions(format, options.quality ?? 90);
+
   return new Promise((resolve, reject) => {
     const outputPaths: string[] = [];
     let currentIndex = 0;
@@ -100,12 +125,13 @@ export function extractFrames(
       }
 
       const timestamp = timestamps[currentIndex];
-      const outputPath = path.join(outputDir, `frame_${currentIndex.toString().padStart(6, '0')}.png`);
+      const outputPath = path.join(outputDir, `frame_${currentIndex.toString().padStart(6, '0')}.${format}`);
       outputPaths.push(outputPath);
 
       let command = ffmpeg(videoPath)
         .seekInput(timestamp)
         .frames(1)
+        .outputOptions(['-update', '1', ...encodingOptions])
         .output(outputPath);
 
       // Apply size options

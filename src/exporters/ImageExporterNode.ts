@@ -1,11 +1,13 @@
-import { createCanvas, loadImage } from 'canvas';
 import * as path from 'path';
 import { ImageExporter } from './ImageExporter';
-import { ConversionOptions, VideoMetadata, ImageFormat } from '../core/types';
+import { ConversionOptions, VideoMetadata } from '../core/types';
 import * as nodeUtils from '../utils/node';
 
 /**
  * Node.js implementation of image sequence exporter
+ *
+ * Frames arrive already encoded in the requested image format by ffmpeg,
+ * so this only needs to write them out.
  */
 export class ImageExporterNode extends ImageExporter {
   constructor(options: ConversionOptions, metadata: VideoMetadata) {
@@ -23,7 +25,6 @@ export class ImageExporterNode extends ImageExporter {
     }
 
     const format = this.getImageFormat();
-    const quality = this.getImageQuality();
 
     // Determine output directory
     let outputDir: string;
@@ -50,32 +51,7 @@ export class ImageExporterNode extends ImageExporter {
       const filePath = path.join(outputDir, filename);
 
       try {
-        // If the frame is already in PNG format and we want PNG, just save it
-        if (format === 'png') {
-          await nodeUtils.writeBufferToFile(filePath, frame.data);
-        } else {
-          // Convert to desired format
-          const image = await loadImage(frame.data);
-          const canvas = createCanvas(frame.width, frame.height);
-          const ctx = canvas.getContext('2d');
-
-          ctx.drawImage(image, 0, 0, frame.width, frame.height);
-
-          // Convert to buffer
-          let buffer: Buffer;
-          if (format === 'jpeg') {
-            buffer = canvas.toBuffer('image/jpeg', { quality: quality / 100 });
-          } else if (format === 'webp') {
-            buffer = canvas.toBuffer('image/png'); // node-canvas doesn't support webp
-            // Fallback to PNG for webp
-            console.warn('WebP not supported in Node.js, using PNG instead');
-          } else {
-            buffer = canvas.toBuffer('image/png');
-          }
-
-          await nodeUtils.writeBufferToFile(filePath, buffer);
-        }
-
+        await nodeUtils.writeBufferToFile(filePath, frame.data);
         filePaths.push(filePath);
 
         // Report progress
@@ -94,4 +70,3 @@ export class ImageExporterNode extends ImageExporter {
     };
   }
 }
-

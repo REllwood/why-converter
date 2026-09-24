@@ -1,10 +1,13 @@
-import GIFEncoder from 'gifencoder';
-import { createCanvas, loadImage } from 'canvas';
+import { GIFEncoder, quantize, applyPalette } from 'gifenc';
+import { PNG } from 'pngjs';
 import { GIFExporter } from './GIFExporter';
 import { ConversionOptions, VideoMetadata } from '../core/types';
 
 /**
- * Node.js implementation of GIF exporter using gifencoder
+ * Node.js implementation of GIF exporter using gifenc
+ *
+ * Frames are PNGs from ffmpeg, decoded to raw RGBA pixels with pngjs,
+ * so no native modules are needed.
  */
 export class GIFExporterNode extends GIFExporter {
   constructor(options: ConversionOptions, metadata: VideoMetadata) {
@@ -21,44 +24,29 @@ export class GIFExporterNode extends GIFExporter {
       throw new Error('No frames to export');
     }
 
-    const width = frames[0].width;
-    const height = frames[0].height;
+    // Size the GIF from the decoded pixels rather than the reported frame size
+    const firstFrame = PNG.sync.read(frames[0].data);
+    const { width, height } = firstFrame;
 
-    // Create encoder
-    const encoder = new GIFEncoder(width, height);
-
-    // Configure encoder
-    const delay = this.getFrameDelay();
+    const encoder = GIFEncoder();
+    const delay = this.getFrameDelay() * 10; // gifenc expects milliseconds
     const repeat = this.getRepeat();
-    const quality = this.getQuality();
-
-    encoder.setDelay(delay * 10); // gifencoder expects delay in milliseconds
-    encoder.setRepeat(repeat);
-    encoder.setQuality(11 - quality); // gifencoder uses 1 (best) to 10 (worst)
-
-    // Start encoding
-    encoder.start();
-
-    // Create canvas for drawing frames
-    const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext('2d');
+    const maxColors = this.getMaxColors();
 
     // Process each frame
     for (let i = 0; i < frames.length; i++) {
-      const frame = frames[i];
-
       try {
-        // Load image from buffer
-        const image = await loadImage(frame.data);
+        const image = i === 0 ? firstFrame : PNG.sync.read(frames[i].data);
 
-        // Clear canvas
-        ctx.clearRect(0, 0, width, height);
+        if (image.width !== width || image.height !== height) {
+          throw new Error(
+            `Frame is ${image.width}x${image.height} but the GIF is ${width}x${height}`
+          );
+        }
 
-        // Draw image
-        ctx.drawImage(image, 0, 0, width, height);
-
-        // Add frame to GIF
-        encoder.addFrame(ctx as any);
+        const palette = quantize(image.data, maxColors);
+        const index = applyPalette(image.data, palette);
+        encoder.writeFrame(index, width, height, { palette, delay, repeat });
 
         // Report progress
         if (this.options.onProgress) {
@@ -70,12 +58,7 @@ export class GIFExporterNode extends GIFExporter {
       }
     }
 
-    // Finish encoding
     encoder.finish();
-
-    // Get buffer
-    const buffer = encoder.out.getData();
-    return Buffer.from(buffer);
+    return Buffer.from(encoder.bytes());
   }
 }
-
