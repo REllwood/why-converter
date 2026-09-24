@@ -95,7 +95,7 @@ Main function to convert videos.
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `outputFormat` | `'pdf' \| 'gif' \| 'images'` | `'pdf'` | Output format |
-| `outputPath` | `string` | - | Output file path (Node.js only) |
+| `outputPath` | `string` | - | Node.js only. File to write for PDF/GIF (the data is also returned as `buffer`), or directory for images (a temporary directory is used if omitted) |
 
 #### PDF Options
 
@@ -145,7 +145,10 @@ Main function to convert videos.
 ```typescript
 {
   success: boolean;
-  outputPath?: string;        // Node.js
+  error?: string;             // Set when success is false
+  outputPath?: string;        // Node.js: file written (PDF/GIF) or directory (images)
+  buffer?: Buffer;            // Node.js (PDF/GIF), returned whether or not outputPath is set
+  filePaths?: string[];       // Node.js (images)
   blob?: Blob;                // Browser (PDF/GIF)
   files?: File[];             // Browser (images)
   metadata: {
@@ -232,6 +235,19 @@ const a = document.createElement('a');
 a.href = url;
 a.download = 'output.pdf';
 a.click();
+```
+
+### Example 6: Keep the Output in Memory (Node.js)
+
+```javascript
+const result = await convertVideo('./video.mp4', {
+  framesCount: 8,
+  outputFormat: 'gif'           // No outputPath, so nothing is written to disk
+});
+
+if (result.success) {
+  await uploadSomewhere(result.buffer);
+}
 ```
 
 ## Use Cases

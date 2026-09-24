@@ -84,7 +84,9 @@ export interface VideoMetadata {
  */
 export interface ConversionResult {
   success: boolean;
-  outputPath?: string;            // Node.js - file path
+  outputPath?: string;            // Node.js - file path (PDF/GIF) or directory (images)
+  buffer?: Buffer;                // Node.js - PDF/GIF file contents
+  filePaths?: string[];           // Node.js - paths of the written images (image sequence)
   blob?: Blob;                    // Browser - single file output
   files?: File[];                 // Browser - multiple files (image sequence)
   metadata: VideoMetadata;
