@@ -1,5 +1,6 @@
 import { ImageExporter } from './ImageExporter';
 import { ConversionOptions, VideoMetadata, ImageFormat } from '../core/types';
+import { withContext } from '../core/errors';
 import * as browserUtils from '../utils/browser';
 
 /**
@@ -49,7 +50,7 @@ export class ImageExporterBrowser extends ImageExporter {
           this.options.onProgress(progress);
         }
       } catch (error) {
-        console.error(`Failed to export frame ${i}:`, error);
+        throw withContext(`Failed to export frame ${i}`, error);
       }
     }
 

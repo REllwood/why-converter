@@ -1,6 +1,7 @@
 import GIF from 'gif.js';
 import { GIFExporter } from './GIFExporter';
 import { ConversionOptions, VideoMetadata } from '../core/types';
+import { withContext } from '../core/errors';
 import * as browserUtils from '../utils/browser';
 
 /**
@@ -80,7 +81,7 @@ export class GIFExporterBrowser extends GIFExporter {
           this.options.onProgress(progress);
         }
       } catch (error) {
-        console.error(`Failed to add frame ${i} to GIF:`, error);
+        throw withContext(`Failed to add frame ${i} to GIF`, error);
       }
     }
 

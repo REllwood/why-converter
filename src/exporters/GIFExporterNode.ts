@@ -2,6 +2,7 @@ import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 import { PNG } from 'pngjs';
 import { GIFExporter } from './GIFExporter';
 import { ConversionOptions, VideoMetadata } from '../core/types';
+import { withContext } from '../core/errors';
 
 /**
  * Node.js implementation of GIF exporter using gifenc
@@ -24,21 +25,23 @@ export class GIFExporterNode extends GIFExporter {
       throw new Error('No frames to export');
     }
 
-    // Size the GIF from the decoded pixels rather than the reported frame size
-    const firstFrame = PNG.sync.read(frames[0].data);
-    const { width, height } = firstFrame;
-
     const encoder = GIFEncoder();
     const delay = this.getFrameDelay() * 10; // gifenc expects milliseconds
     const repeat = this.getRepeat();
     const maxColors = this.getMaxColors();
 
+    // Size the GIF from the first frame's decoded pixels rather than the reported frame size
+    let width = 0;
+    let height = 0;
+
     // Process each frame
     for (let i = 0; i < frames.length; i++) {
       try {
-        const image = i === 0 ? firstFrame : PNG.sync.read(frames[i].data);
+        const image = PNG.sync.read(frames[i].data);
 
-        if (image.width !== width || image.height !== height) {
+        if (i === 0) {
+          ({ width, height } = image);
+        } else if (image.width !== width || image.height !== height) {
           throw new Error(
             `Frame is ${image.width}x${image.height} but the GIF is ${width}x${height}`
           );
@@ -47,14 +50,14 @@ export class GIFExporterNode extends GIFExporter {
         const palette = quantize(image.data, maxColors);
         const index = applyPalette(image.data, palette);
         encoder.writeFrame(index, width, height, { palette, delay, repeat });
-
-        // Report progress
-        if (this.options.onProgress) {
-          const progress = 50 + ((i + 1) / frames.length) * 50; // 50-100%
-          this.options.onProgress(progress);
-        }
       } catch (error) {
-        console.error(`Failed to add frame ${i} to GIF:`, error);
+        throw withContext(`Failed to add frame ${i} to GIF`, error);
+      }
+
+      // Report progress
+      if (this.options.onProgress) {
+        const progress = 50 + ((i + 1) / frames.length) * 50; // 50-100%
+        this.options.onProgress(progress);
       }
     }
 
