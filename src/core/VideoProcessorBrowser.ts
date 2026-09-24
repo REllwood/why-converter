@@ -3,6 +3,11 @@ import { VideoInput, VideoMetadata, ConversionOptions } from './types';
 import * as browserUtils from '../utils/browser';
 
 /**
+ * Frame rate to assume when it hasn't been measured
+ */
+const ASSUMED_FPS = 30;
+
+/**
  * Browser implementation of VideoProcessor using HTML5 Video API
  */
 export class VideoProcessorBrowser extends VideoProcessor {
@@ -37,11 +42,21 @@ export class VideoProcessorBrowser extends VideoProcessor {
       throw new Error('Unsupported input type for browser environment');
     }
 
+    // Recordings without a stored duration report Infinity until reaching the end
+    await browserUtils.ensureDuration(this.video);
+
     // Get video metadata
     const metadata = browserUtils.getVideoMetadata(this.video);
 
-    // Calculate total frames (approximate)
-    const totalFrames = Math.floor(metadata.duration * metadata.fps);
+    // Browsers don't expose the frame rate. Measuring it means briefly playing
+    // the video, so only do it when it matters: picking every Nth frame.
+    const measuredFps = this.options.extractionMode === 'interval'
+      ? await browserUtils.estimateFrameRate(this.video)
+      : undefined;
+    const fps = measuredFps ?? ASSUMED_FPS;
+
+    // Calculate total frames (approximate unless the frame rate was measured)
+    const totalFrames = Math.floor(metadata.duration * fps);
 
     this.metadata = {
       totalFrames,
@@ -51,7 +66,7 @@ export class VideoProcessorBrowser extends VideoProcessor {
         width: metadata.width,
         height: metadata.height
       },
-      fps: metadata.fps,
+      fps,
       format: 'unknown' // Browser can't easily detect format
     };
 
@@ -97,8 +112,10 @@ export class VideoProcessorBrowser extends VideoProcessor {
    */
   async cleanup(): Promise<void> {
     if (this.video) {
+      // Removing the source (rather than setting it to '') releases the media
+      // without the element reporting an error
       this.video.pause();
-      this.video.src = '';
+      this.video.removeAttribute('src');
       this.video.load();
       this.video = null;
     }

@@ -19,6 +19,8 @@ export interface BrowserHarness {
   baseUrl: string;
   /** Every URL the page has requested */
   requests: string[];
+  /** Open another page with the bundle loaded, for tests that change browser behaviour */
+  openPage(): Promise<Page>;
   close(): Promise<void>;
 }
 
@@ -60,6 +62,11 @@ export async function startBrowser(files: Record<string, string>): Promise<Brows
     page,
     baseUrl,
     requests,
+    async openPage() {
+      const extraPage = await browser.newPage();
+      await extraPage.goto(`${baseUrl}/`);
+      return extraPage;
+    },
     async close() {
       await browser.close();
       await new Promise(resolve => server.close(resolve));

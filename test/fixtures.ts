@@ -16,15 +16,16 @@ export function removeDir(dir: string): void {
 /**
  * Render ffmpeg's colour-bar test pattern into a video file. With `rotation`,
  * the video is stored as width x height but flagged to display rotated, the
- * way phones record portrait video.
+ * way phones record portrait video. With `withoutDuration` (WebM only), the
+ * file is written as a live stream, which doesn't store its duration.
  */
 export function createTestVideo(
   outputPath: string,
-  { duration = 2, fps = 30, width = 320, height = 240, rotation = 0 } = {}
+  { duration = 2, fps = 30, width = 320, height = 240, rotation = 0, withoutDuration = false } = {}
 ): string {
   const extension = path.extname(outputPath);
   const codec = extension === '.webm'
-    ? ['-c:v', 'libvpx', '-b:v', '500k']
+    ? ['-c:v', 'libvpx', '-b:v', '500k', ...(withoutDuration ? ['-f', 'webm', '-live', '1'] : [])]
     : ['-c:v', 'libx264', '-pix_fmt', 'yuv420p'];
   const encodedPath = rotation ? `${outputPath}.unrotated${extension}` : outputPath;
 

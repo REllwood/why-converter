@@ -114,6 +114,8 @@ Main function to convert videos.
 | `frameInterval` | `number` | `30` | Extract every Nth frame (mode: 'interval') |
 | `timeInterval` | `number` | `1` | Extract a frame every N seconds, starting at 0 (mode: 'time') |
 
+Browsers don't expose a video's frame rate, so in the browser `'interval'` mode measures it by playing the video (muted) for a fraction of a second. The other modes don't need it, and report `metadata.fps` as 30.
+
 #### Output Options
 
 | Option | Type | Default | Description |
