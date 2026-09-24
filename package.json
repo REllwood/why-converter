@@ -4,24 +4,46 @@
   "description": "Why would you ever use this? A universal library for converting videos to PDF, GIF, or image sequences with advanced frame extraction options",
   "main": "./dist/node/index.node.js",
   "browser": "./dist/browser/index.js",
-  "types": "./dist/types/index.d.ts",
+  "types": "./dist/node/index.node.d.ts",
   "exports": {
     ".": {
       "node": {
-        "require": "./dist/node/index.node.js",
-        "import": "./dist/node/index.node.mjs"
+        "import": {
+          "types": "./dist/node/index.node.d.mts",
+          "default": "./dist/node/index.node.mjs"
+        },
+        "require": {
+          "types": "./dist/node/index.node.d.ts",
+          "default": "./dist/node/index.node.js"
+        }
       },
-      "browser": "./dist/browser/index.js",
-      "default": "./dist/node/index.node.js"
-    }
+      "browser": {
+        "types": "./dist/node/index.node.d.ts",
+        "default": "./dist/browser/index.js"
+      },
+      "import": {
+        "types": "./dist/node/index.node.d.mts",
+        "default": "./dist/node/index.node.mjs"
+      },
+      "default": {
+        "types": "./dist/node/index.node.d.ts",
+        "default": "./dist/node/index.node.js"
+      }
+    },
+    "./package.json": "./package.json"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "npm run build:node && npm run build:browser && npm run build:types",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && npm run build:node && npm run build:esm && npm run build:browser",
     "build:node": "tsc -p tsconfig.node.json",
+    "build:esm": "node scripts/write-esm-entry.js",
     "build:browser": "webpack --config webpack.config.js",
-    "build:types": "tsc -p tsconfig.node.json --declaration --emitDeclarationOnly --outDir dist/types && cp dist/types/index.node.d.ts dist/types/index.d.ts",
     "dev": "tsc -p tsconfig.node.json --watch",
     "test": "jest",
+    "test:package": "npm run build && node test/package/smoke.mjs && attw --pack .",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -47,6 +69,7 @@
     "pngjs": "^7.0.0"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@jest/globals": "^29.7.0",
     "@types/fluent-ffmpeg": "^2.1.24",
     "@types/jest": "^29.5.14",

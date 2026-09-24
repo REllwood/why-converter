@@ -28,7 +28,7 @@ In Node.js the library uses `ffmpeg` and `ffprobe`. Both are installed automatic
 ### Node.js
 
 ```javascript
-const { convertVideo } = require('why-converter');
+import { convertVideo } from 'why-converter';
 
 // Convert video to PDF
 const result = await convertVideo('./video.mp4', {
@@ -39,10 +39,34 @@ const result = await convertVideo('./video.mp4', {
   onProgress: (progress) => console.log(`${progress}%`)
 });
 
-console.log('Success!', result);
+if (result.success) {
+  console.log('Saved to', result.outputPath);
+} else {
+  console.error('Failed:', result.error);
+}
 ```
 
-### Browser
+CommonJS works too:
+
+```javascript
+const { convertVideo } = require('why-converter');
+
+convertVideo('./video.mp4', { outputFormat: 'gif' }).then((result) => {
+  console.log(result.success ? `${result.buffer.length} bytes` : result.error);
+});
+```
+
+### Browser (with a bundler)
+
+Bundlers such as webpack and Vite pick up the browser build automatically:
+
+```javascript
+import { convertVideo } from 'why-converter';
+
+const result = await convertVideo(fileInput.files[0], { outputFormat: 'pdf' });
+```
+
+### Browser (script tag)
 
 ```html
 <script src="node_modules/why-converter/dist/browser/index.js"></script>

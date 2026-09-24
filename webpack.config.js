@@ -2,7 +2,7 @@ const path = require('path');
 
 module.exports = {
   mode: 'production',
-  entry: './src/index.browser.ts',
+  entry: './src/index.umd.ts',
   output: {
     path: path.resolve(__dirname, 'dist/browser'),
     filename: 'index.js',

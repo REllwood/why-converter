@@ -3,7 +3,9 @@
   "compilerOptions": {
     "outDir": "./dist/browser",
     "lib": ["ES2020", "DOM"],
-    "types": []
+    "types": [],
+    "declaration": false,
+    "declarationMap": false
   },
   "include": ["src/**/*"],
   "exclude": [
