@@ -83,7 +83,7 @@ export class FrameExtractor {
    * Extract one frame every N seconds
    */
   private getTimestampsByTimeInterval(): number[] {
-    const interval = this.config.timeInterval || 1;
+    const interval = this.config.timeInterval ?? 1;
     const duration = this.config.videoDuration;
 
     if (interval <= 0) {

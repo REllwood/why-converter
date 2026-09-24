@@ -3,8 +3,7 @@ import {
   ConversionResult,
   VideoInput
 } from './core/types';
-import { DEFAULT_CONFIG } from './config';
-import { createProgressReporter } from './core/progress';
+import { runConversion } from './core/convert';
 import { VideoProcessorBrowser } from './core/VideoProcessorBrowser';
 import { PDFExporterBrowser } from './exporters/PDFExporterBrowser';
 import { GIFExporterBrowser } from './exporters/GIFExporterBrowser';
@@ -13,64 +12,11 @@ import { ImageExporterBrowser } from './exporters/ImageExporterBrowser';
 /**
  * Main function to convert video to various formats (Browser version)
  */
-export async function convertVideo(
+export function convertVideo(
   input: VideoInput,
-  options: Partial<ConversionOptions>
+  options: Partial<ConversionOptions> = {}
 ): Promise<ConversionResult> {
-  // Merge options with defaults
-  const fullOptions: ConversionOptions = {
-    extractionMode: options.extractionMode || DEFAULT_CONFIG.extractionMode,
-    outputFormat: options.outputFormat || DEFAULT_CONFIG.outputFormat,
-    framesCount: options.framesCount,
-    frameInterval: options.frameInterval,
-    timeInterval: options.timeInterval,
-    outputPath: options.outputPath,
-    pdfLayout: options.pdfLayout || DEFAULT_CONFIG.pdfLayout,
-    framesPerPage: options.framesPerPage || DEFAULT_CONFIG.framesPerPage,
-    pageSize: options.pageSize || DEFAULT_CONFIG.pageSize,
-    gifFps: options.gifFps || DEFAULT_CONFIG.gifFps,
-    gifQuality: options.gifQuality || DEFAULT_CONFIG.gifQuality,
-    gifRepeat: options.gifRepeat !== undefined ? options.gifRepeat : DEFAULT_CONFIG.gifRepeat,
-    imageFormat: options.imageFormat || DEFAULT_CONFIG.imageFormat,
-    imageQuality: options.imageQuality || DEFAULT_CONFIG.imageQuality,
-    imagePrefix: options.imagePrefix || DEFAULT_CONFIG.imagePrefix,
-    width: options.width,
-    height: options.height,
-    maintainAspectRatio: options.maintainAspectRatio !== false,
-    compression: options.compression || DEFAULT_CONFIG.compression,
-    onProgress: createProgressReporter(options.onProgress),
-    onComplete: options.onComplete,
-    onError: options.onError
-  };
-
-  try {
-    const result = await processVideo(input, fullOptions);
-    fullOptions.onProgress?.(100);
-
-    if (fullOptions.onComplete) {
-      fullOptions.onComplete(result);
-    }
-
-    return result;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const result: ConversionResult = {
-      success: false,
-      error: errorMessage,
-      metadata: {
-        totalFrames: 0,
-        extractedFrames: 0,
-        duration: 0,
-        dimensions: { width: 0, height: 0 }
-      }
-    };
-
-    if (fullOptions.onError) {
-      fullOptions.onError(error instanceof Error ? error : new Error(errorMessage));
-    }
-
-    return result;
-  }
+  return runConversion(input, options, processVideo);
 }
 
 /**
