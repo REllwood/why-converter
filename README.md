@@ -21,11 +21,7 @@ A powerful, universal JavaScript library for converting videos to PDF, GIF, or i
 npm install why-converter
 ```
 
-For Node.js usage, you'll also need ffmpeg installed on your system, or use the optional `ffmpeg-static` package:
-
-```bash
-npm install why-converter ffmpeg-static
-```
+In Node.js the library uses `ffmpeg` and `ffprobe`. Both are installed automatically through the optional dependencies `ffmpeg-static` and `@ffprobe-installer/ffprobe`, so there's nothing else to set up. If you'd rather use your own binaries, see [FFmpeg Not Found](#ffmpeg-not-found-nodejs).
 
 ## Quick Start
 
@@ -252,7 +248,7 @@ a.click();
 
 ### Node.js
 - Node.js >= 14.0.0
-- FFmpeg (installed globally or via `ffmpeg-static` package)
+- `ffmpeg` and `ffprobe` (installed automatically via optional dependencies, or from your system)
 
 ### Browser
 - Modern browser with:
@@ -306,11 +302,13 @@ const result = await convertVideo('./video.mp4', {
 
 ### FFmpeg Not Found (Node.js)
 
-Install ffmpeg globally or use `ffmpeg-static`:
+The binaries are looked up in this order:
 
-```bash
-npm install ffmpeg-static
-```
+1. The `FFMPEG_PATH` and `FFPROBE_PATH` environment variables
+2. The optional `ffmpeg-static` and `@ffprobe-installer/ffprobe` packages
+3. `ffmpeg` and `ffprobe` on your `PATH`
+
+The optional packages fetch or set up their binaries in install scripts. If your package manager skips install scripts (for example pnpm, until you run `pnpm approve-builds`), or you installed with `--omit=optional`, either allow those scripts or install ffmpeg on your system, which includes ffprobe.
 
 ### Browser Memory Issues
 

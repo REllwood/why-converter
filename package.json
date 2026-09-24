@@ -61,6 +61,7 @@
     "webpack-cli": "^5.1.4"
   },
   "optionalDependencies": {
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "ffmpeg-static": "^5.2.0"
   },
   "engines": {

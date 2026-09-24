@@ -4,18 +4,73 @@ import * as os from 'os';
 import ffmpeg from 'fluent-ffmpeg';
 import { ImageFormat } from '../core/types';
 
-let ffmpegPath: string | undefined;
-
-// Try to use ffmpeg-static if available
-try {
-  const ffmpegStatic = require('ffmpeg-static');
-  if (ffmpegStatic && typeof ffmpegStatic === 'string') {
-    ffmpegPath = ffmpegStatic;
-    ffmpeg.setFfmpegPath(ffmpegPath);
+/**
+ * Load an optional package, returning undefined when it isn't installed
+ */
+function optionalRequire<T>(name: string): T | undefined {
+  try {
+    return require(name);
+  } catch {
+    return undefined;
   }
-} catch (e) {
-  // ffmpeg-static not available, will try to use system ffmpeg
-  console.warn('ffmpeg-static not found, using system ffmpeg');
+}
+
+/**
+ * Check a binary exists and can be run. The optional packages download or
+ * chmod their binaries in install scripts, which some package managers skip.
+ */
+function isExecutable(filePath: string | null | undefined): filePath is string {
+  if (!filePath) {
+    return false;
+  }
+  try {
+    fs.accessSync(filePath, fs.constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Point fluent-ffmpeg at the binaries from the optional ffmpeg-static and
+ * @ffprobe-installer/ffprobe packages when they are installed. FFMPEG_PATH and
+ * FFPROBE_PATH take precedence, and otherwise fluent-ffmpeg searches the PATH.
+ */
+function configureBinaries(): void {
+  if (!process.env.FFMPEG_PATH) {
+    const ffmpegStatic = optionalRequire<string | null>('ffmpeg-static');
+    if (isExecutable(ffmpegStatic)) {
+      ffmpeg.setFfmpegPath(ffmpegStatic);
+    }
+  }
+
+  if (!process.env.FFPROBE_PATH) {
+    const ffprobeInstaller = optionalRequire<{ path?: string }>('@ffprobe-installer/ffprobe');
+    if (isExecutable(ffprobeInstaller?.path)) {
+      ffmpeg.setFfprobePath(ffprobeInstaller.path);
+    }
+  }
+}
+
+configureBinaries();
+
+const MISSING_BINARY_HELP: Record<'ffmpeg' | 'ffprobe', string> = {
+  ffmpeg:
+    'ffmpeg was not found. Install ffmpeg on your system, install the optional ' +
+    '"ffmpeg-static" package, or set the FFMPEG_PATH environment variable.',
+  ffprobe:
+    'ffprobe was not found. Install ffmpeg on your system (it includes ffprobe), install the ' +
+    'optional "@ffprobe-installer/ffprobe" package, or set the FFPROBE_PATH environment variable.'
+};
+
+/**
+ * Replace fluent-ffmpeg's "binary not found" errors with instructions for fixing them
+ */
+export function describeFfmpegError(error: Error, binary: 'ffmpeg' | 'ffprobe'): string {
+  if (/Cannot find (ffmpeg|ffprobe)|spawn \S+ ENOENT/.test(error.message)) {
+    return MISSING_BINARY_HELP[binary];
+  }
+  return error.message;
 }
 
 /**
@@ -53,7 +108,7 @@ export function getVideoMetadata(videoPath: string): Promise<{
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(videoPath, (err, metadata) => {
       if (err) {
-        reject(new Error(`Failed to get video metadata: ${err.message}`));
+        reject(new Error(`Failed to get video metadata: ${describeFfmpegError(err, 'ffprobe')}`));
         return;
       }
 
@@ -149,7 +204,7 @@ export function extractFrames(
           processNext();
         })
         .on('error', (err) => {
-          reject(new Error(`Failed to extract frame at ${timestamp}s: ${err.message}`));
+          reject(new Error(`Failed to extract frame at ${timestamp}s: ${describeFfmpegError(err, 'ffmpeg')}`));
         })
         .run();
     };
