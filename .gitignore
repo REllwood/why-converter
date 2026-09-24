@@ -32,10 +32,8 @@ coverage/
 *~
 .DS_Store
 
-# Test files
+# Test output
 test-output/
-*.test.js
-*.test.ts
 
 # Temporary files
 tmp/
