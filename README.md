@@ -79,7 +79,7 @@ Main function to convert videos.
 - **input**: `string | File | Blob | Buffer`
   - File path (Node.js) or File/Blob object (Browser)
 
-- **options**: `ConversionOptions` object with the following properties:
+- **options** (optional): `ConversionOptions` object with the following properties. Every option is checked before any work starts; invalid values make the conversion fail with `success: false` and an `error` listing every problem.
 
 #### Frame Extraction Options
 
