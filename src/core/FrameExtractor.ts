@@ -1,6 +1,19 @@
 import { FrameExtractionConfig, ExtractionMode } from './types';
 
 /**
+ * Frame rate to assume when the video doesn't report a usable one
+ */
+const FALLBACK_FPS = 30;
+
+/**
+ * Round a time to the microsecond, the precision ffmpeg seeks with, so
+ * floating point noise such as 0.8999999999999999 becomes 0.9
+ */
+function roundTime(seconds: number): number {
+  return Math.round(seconds * 1e6) / 1e6;
+}
+
+/**
  * FrameExtractor handles the logic for determining which frames to extract
  * based on the extraction mode and parameters
  */
@@ -13,8 +26,16 @@ export class FrameExtractor {
 
   /**
    * Calculate timestamps for frames to extract
+   *
+   * Timestamps are in ascending order, never repeat, and never go past the
+   * start of the last frame (seeking any later finds nothing to decode).
    */
   public getFrameTimestamps(): number[] {
+    const duration = this.config.videoDuration;
+    if (!Number.isFinite(duration) || duration <= 0) {
+      throw new Error(`Cannot pick frames because the video's duration is unknown or zero (got ${duration})`);
+    }
+
     switch (this.config.mode) {
       case 'frames':
         return this.getTimestampsByFrameCount();
@@ -28,30 +49,48 @@ export class FrameExtractor {
   }
 
   /**
-   * Extract N frames evenly distributed across video duration
+   * The video's frame rate, or a fallback when it isn't usable
+   */
+  private get fps(): number {
+    const fps = this.config.videoFps;
+    return Number.isFinite(fps) && fps > 0 ? fps : FALLBACK_FPS;
+  }
+
+  /**
+   * Number of whole frames in the video (always at least one)
+   */
+  private get frameTotal(): number {
+    return Math.max(1, Math.floor(this.config.videoDuration * this.fps));
+  }
+
+  /**
+   * Time at which the last frame starts
+   */
+  private get lastFrameTime(): number {
+    // Round down so rounding can never land just past the last frame
+    return Math.max(0, Math.floor((this.config.videoDuration - 1 / this.fps) * 1e6) / 1e6);
+  }
+
+  /**
+   * Extract N frames evenly distributed from the first frame to the last.
+   * Asking for more frames than the video has returns every frame once.
    */
   private getTimestampsByFrameCount(): number[] {
-    const count = this.config.framesCount !== undefined ? this.config.framesCount : 10;
-    const duration = this.config.videoDuration;
+    const requested = this.config.framesCount !== undefined ? this.config.framesCount : 10;
 
-    if (count <= 0) {
+    if (requested <= 0) {
       throw new Error('Frame count must be greater than 0');
     }
 
+    const count = Math.min(requested, this.frameTotal);
+
     if (count === 1) {
       // Single frame from the middle
-      return [duration / 2];
+      return [Math.min(this.config.videoDuration / 2, this.lastFrameTime)];
     }
 
-    const timestamps: number[] = [];
-    const interval = duration / (count - 1);
-
-    for (let i = 0; i < count; i++) {
-      const timestamp = Math.min(i * interval, duration - 0.1); // -0.1 to avoid edge cases
-      timestamps.push(timestamp);
-    }
-
-    return timestamps;
+    const step = this.lastFrameTime / (count - 1);
+    return Array.from({ length: count }, (_, i) => Math.min(roundTime(i * step), this.lastFrameTime));
   }
 
   /**
@@ -59,48 +98,37 @@ export class FrameExtractor {
    */
   private getTimestampsByFrameInterval(): number[] {
     const interval = this.config.frameInterval !== undefined ? this.config.frameInterval : 30;
-    const fps = this.config.videoFps;
-    const duration = this.config.videoDuration;
 
     if (interval <= 0) {
       throw new Error('Frame interval must be greater than 0');
     }
 
     const timestamps: number[] = [];
-    const totalFrames = Math.floor(duration * fps);
-
-    for (let frameIndex = 0; frameIndex < totalFrames; frameIndex += interval) {
-      const timestamp = frameIndex / fps;
-      if (timestamp < duration) {
-        timestamps.push(timestamp);
-      }
+    for (let frameIndex = 0; frameIndex < this.frameTotal; frameIndex += interval) {
+      timestamps.push(Math.min(roundTime(frameIndex / this.fps), this.lastFrameTime));
     }
 
     return timestamps;
   }
 
   /**
-   * Extract one frame every N seconds
+   * Extract one frame every N seconds, starting at 0
    */
   private getTimestampsByTimeInterval(): number[] {
     const interval = this.config.timeInterval ?? 1;
-    const duration = this.config.videoDuration;
 
     if (interval <= 0) {
       throw new Error('Time interval must be greater than 0');
     }
 
     const timestamps: number[] = [];
-    let currentTime = 0;
 
-    while (currentTime < duration) {
-      timestamps.push(currentTime);
-      currentTime += interval;
-    }
-
-    // Add last frame if not already included
-    if (timestamps[timestamps.length - 1] < duration - 0.1) {
-      timestamps.push(duration - 0.1);
+    // Multiply rather than add, so floating point error doesn't build up
+    for (let i = 0; i * interval < this.config.videoDuration; i++) {
+      const timestamp = Math.min(roundTime(i * interval), this.lastFrameTime);
+      if (timestamps.length === 0 || timestamp > timestamps[timestamps.length - 1]) {
+        timestamps.push(timestamp);
+      }
     }
 
     return timestamps;
@@ -138,4 +166,3 @@ export class FrameExtractor {
     return new FrameExtractor(config);
   }
 }
-
