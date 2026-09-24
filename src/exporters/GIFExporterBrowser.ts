@@ -1,11 +1,13 @@
-import GIF from 'gif.js';
 import { GIFExporter } from './GIFExporter';
 import { ConversionOptions, VideoMetadata } from '../core/types';
 import { withContext } from '../core/errors';
 import * as browserUtils from '../utils/browser';
 
 /**
- * Browser implementation of GIF exporter using gif.js
+ * Browser implementation of GIF exporter
+ *
+ * Encodes on the page itself, so unlike worker-based encoders it needs no
+ * extra script to be fetched and works under any origin.
  */
 export class GIFExporterBrowser extends GIFExporter {
   constructor(options: ConversionOptions, metadata: VideoMetadata) {
@@ -25,88 +27,34 @@ export class GIFExporterBrowser extends GIFExporter {
     const width = frames[0].width;
     const height = frames[0].height;
 
-    // Calculate delay in milliseconds
-    const fps = this.options.gifFps || 10;
-    const delay = Math.round(1000 / fps);
+    const canvas = browserUtils.createCanvas(width, height);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) {
+      throw new Error('Failed to get canvas context');
+    }
 
-    const repeat = this.getRepeat();
-    const quality = this.getQuality();
-
-    // Create GIF encoder
-    const gif = new GIF({
-      workers: 2,
-      quality: 11 - quality, // gif.js uses 1 (best) to 10 (worst)
-      width,
-      height,
-      repeat,
-      workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'
-    });
+    const encoder = this.createEncoder(width, height);
 
     // Process each frame
     for (let i = 0; i < frames.length; i++) {
-      const frame = frames[i];
-
       try {
-        // Convert blob to image
-        const canvas = browserUtils.createCanvas(width, height);
-        const ctx = canvas.getContext('2d');
+        const image = await browserUtils.blobToImage(frames[i].data);
 
-        if (!ctx) {
-          throw new Error('Failed to get canvas context');
-        }
-
-        // Load image from blob
-        const imageUrl = URL.createObjectURL(frame.data);
-        const image = new Image();
-
-        await new Promise<void>((resolve, reject) => {
-          image.onload = () => {
-            ctx.drawImage(image, 0, 0, width, height);
-            URL.revokeObjectURL(imageUrl);
-            resolve();
-          };
-          image.onerror = () => {
-            URL.revokeObjectURL(imageUrl);
-            reject(new Error('Failed to load frame image'));
-          };
-          image.src = imageUrl;
-        });
-
-        // Add frame to GIF
-        gif.addFrame(canvas, { delay });
-
-        // Report progress
-        if (this.options.onProgress) {
-          const progress = 50 + ((i + 1) / frames.length) * 25; // 50-75%
-          this.options.onProgress(progress);
-        }
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(image, 0, 0, width, height);
+        encoder.addFrame(ctx.getImageData(0, 0, width, height).data);
       } catch (error) {
         throw withContext(`Failed to add frame ${i} to GIF`, error);
       }
+
+      // Report progress
+      if (this.options.onProgress) {
+        const progress = 50 + ((i + 1) / frames.length) * 50; // 50-100%
+        this.options.onProgress(progress);
+      }
     }
 
-    // Render GIF
-    return new Promise<Blob>((resolve, reject) => {
-      gif.on('finished', (blob: Blob) => {
-        if (this.options.onProgress) {
-          this.options.onProgress(100);
-        }
-        resolve(blob);
-      });
-
-      gif.on('progress', (p: number) => {
-        if (this.options.onProgress) {
-          const progress = 75 + p * 25; // 75-100%
-          this.options.onProgress(progress);
-        }
-      });
-
-      gif.on('error', (error: Error) => {
-        reject(error);
-      });
-
-      gif.render();
-    });
+    // Copying into a new Uint8Array gives it the plain ArrayBuffer that Blob's types require
+    return new Blob([new Uint8Array(encoder.finish())], { type: 'image/gif' });
   }
 }
-

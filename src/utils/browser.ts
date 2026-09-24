@@ -130,6 +130,29 @@ export async function extractFrames(
 }
 
 /**
+ * Decode an image Blob so it can be drawn onto a canvas
+ */
+export function blobToImage(blob: Blob): Promise<CanvasImageSource> {
+  if (typeof createImageBitmap === 'function') {
+    return createImageBitmap(blob);
+  }
+
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load frame image'));
+    };
+    image.src = url;
+  });
+}
+
+/**
  * Convert blob to base64 data URL
  */
 export function blobToBase64(blob: Blob): Promise<string> {
