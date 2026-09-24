@@ -86,9 +86,9 @@ Main function to convert videos.
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `extractionMode` | `'frames' \| 'interval' \| 'time'` | `'frames'` | Frame extraction mode |
-| `framesCount` | `number` | `10` | Number of frames to extract (mode: 'frames') |
-| `frameInterval` | `number` | - | Extract every Nth frame (mode: 'interval') |
-| `timeInterval` | `number` | - | Extract frame every N seconds (mode: 'time') |
+| `framesCount` | `number` | `10` | Number of frames to extract, evenly spaced from the first frame to the last (mode: 'frames'). A video with fewer frames returns each frame once |
+| `frameInterval` | `number` | `30` | Extract every Nth frame (mode: 'interval') |
+| `timeInterval` | `number` | `1` | Extract a frame every N seconds, starting at 0 (mode: 'time') |
 
 #### Output Options
 

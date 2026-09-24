@@ -94,6 +94,25 @@ export function cleanupTempDir(tempDir: string): void {
 }
 
 /**
+ * Return a value as a number if it is finite and above zero
+ */
+function positiveNumber(value: unknown): number | undefined {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : undefined;
+}
+
+/**
+ * Parse an ffprobe frame rate such as "30/1" or "30000/1001" ("0/0" means unknown)
+ */
+export function parseFrameRate(rate: string | undefined): number | undefined {
+  if (!rate) {
+    return undefined;
+  }
+  const [numerator, denominator = '1'] = rate.split('/');
+  return positiveNumber(Number(numerator) / Number(denominator));
+}
+
+/**
  * Get video metadata using ffmpeg
  */
 export function getVideoMetadata(videoPath: string): Promise<{
@@ -116,15 +135,12 @@ export function getVideoMetadata(videoPath: string): Promise<{
         return;
       }
 
-      // Parse FPS from r_frame_rate (e.g., "30/1" or "30000/1001")
-      let fps = 30; // default
-      if (videoStream.r_frame_rate) {
-        const [num, den] = videoStream.r_frame_rate.split('/').map(Number);
-        fps = num / den;
-      }
+      // avg_frame_rate is the real rate for variable frame rate video, where
+      // r_frame_rate is only the timebase; fall back to 30 if neither is usable
+      const fps = parseFrameRate(videoStream.avg_frame_rate) ?? parseFrameRate(videoStream.r_frame_rate) ?? 30;
 
       resolve({
-        duration: metadata.format.duration || 0,
+        duration: positiveNumber(metadata.format.duration) ?? positiveNumber(videoStream.duration) ?? 0,
         width: videoStream.width || 0,
         height: videoStream.height || 0,
         fps,
@@ -156,59 +172,87 @@ function frameEncodingOptions(format: ImageFormat, quality: number): string[] {
 }
 
 /**
+ * Run ffmpeg to write a single frame, either at a timestamp or the video's last frame
+ */
+function writeFrame(
+  videoPath: string,
+  outputPath: string,
+  position: { seek: number } | { lastFrame: true },
+  size: { width?: number; height?: number },
+  encodingOptions: string[]
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let command = ffmpeg(videoPath);
+
+    if ('seek' in position) {
+      command = command.seekInput(position.seek).frames(1);
+    } else {
+      // Decode the final second, overwriting the output with each frame, so the last one remains
+      command = command.inputOptions(['-sseof', '-1']);
+    }
+
+    command = command.outputOptions(['-update', '1', ...encodingOptions]).output(outputPath);
+
+    // Apply size options
+    if (size.width && size.height) {
+      command = command.size(`${size.width}x${size.height}`);
+    } else if (size.width) {
+      command = command.size(`${size.width}x?`);
+    } else if (size.height) {
+      command = command.size(`?x${size.height}`);
+    }
+
+    command
+      .on('end', () => resolve())
+      .on('error', (err) => reject(err))
+      .run();
+  });
+}
+
+/**
  * Extract frames from video at specific timestamps
  */
-export function extractFrames(
+export async function extractFrames(
   videoPath: string,
   timestamps: number[],
   outputDir: string,
-  options: { width?: number; height?: number; format?: ImageFormat; quality?: number } = {}
+  options: {
+    width?: number;
+    height?: number;
+    format?: ImageFormat;
+    quality?: number;
+    onFrame?: (index: number) => void;
+  } = {}
 ): Promise<string[]> {
   const format = options.format || 'png';
   const encodingOptions = frameEncodingOptions(format, options.quality ?? 90);
+  const outputPaths: string[] = [];
 
-  return new Promise((resolve, reject) => {
-    const outputPaths: string[] = [];
-    let currentIndex = 0;
+  for (let i = 0; i < timestamps.length; i++) {
+    const timestamp = timestamps[i];
+    const outputPath = path.join(outputDir, `frame_${i.toString().padStart(6, '0')}.${format}`);
 
-    const processNext = () => {
-      if (currentIndex >= timestamps.length) {
-        resolve(outputPaths);
-        return;
+    try {
+      await writeFrame(videoPath, outputPath, { seek: timestamp }, options, encodingOptions);
+
+      // ffmpeg finds nothing to decode when seeking at or past the final frame,
+      // which can happen with rounding or variable frame rates; use the last frame
+      if (!fs.existsSync(outputPath)) {
+        await writeFrame(videoPath, outputPath, { lastFrame: true }, options, encodingOptions);
       }
+    } catch (error) {
+      throw new Error(`Failed to extract frame at ${timestamp}s: ${describeFfmpegError(error as Error, 'ffmpeg')}`);
+    }
 
-      const timestamp = timestamps[currentIndex];
-      const outputPath = path.join(outputDir, `frame_${currentIndex.toString().padStart(6, '0')}.${format}`);
-      outputPaths.push(outputPath);
+    if (!fs.existsSync(outputPath)) {
+      throw new Error(`Failed to extract frame at ${timestamp}s: ffmpeg could not decode a frame there`);
+    }
 
-      let command = ffmpeg(videoPath)
-        .seekInput(timestamp)
-        .frames(1)
-        .outputOptions(['-update', '1', ...encodingOptions])
-        .output(outputPath);
+    outputPaths.push(outputPath);
+    options.onFrame?.(i);
+  }
 
-      // Apply size options
-      if (options.width && options.height) {
-        command = command.size(`${options.width}x${options.height}`);
-      } else if (options.width) {
-        command = command.size(`${options.width}x?`);
-      } else if (options.height) {
-        command = command.size(`?x${options.height}`);
-      }
-
-      command
-        .on('end', () => {
-          currentIndex++;
-          processNext();
-        })
-        .on('error', (err) => {
-          reject(new Error(`Failed to extract frame at ${timestamp}s: ${describeFfmpegError(err, 'ffmpeg')}`));
-        })
-        .run();
-    };
-
-    processNext();
-  });
+  return outputPaths;
 }
 
 /**

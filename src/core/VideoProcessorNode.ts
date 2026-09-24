@@ -88,7 +88,14 @@ export class VideoProcessorNode extends VideoProcessor {
       {
         ...options,
         format: isImageSequence ? this.options.imageFormat : 'png',
-        quality: this.options.imageQuality
+        quality: this.options.imageQuality,
+        onFrame: (index) => {
+          // Report progress
+          if (this.options.onProgress) {
+            const progress = ((index + 1) / timestamps.length) * 50; // 0-50% for extraction
+            this.options.onProgress(progress);
+          }
+        }
       }
     );
 
@@ -96,21 +103,12 @@ export class VideoProcessorNode extends VideoProcessor {
     const frames: Array<{ data: Buffer; width: number; height: number; timestamp: number }> = [];
 
     for (let i = 0; i < framePaths.length; i++) {
-      const framePath = framePaths[i];
-      const data = await nodeUtils.readFileAsBuffer(framePath);
-      
       frames.push({
-        data,
+        data: await nodeUtils.readFileAsBuffer(framePaths[i]),
         width: options?.width || this.metadata!.dimensions.width,
         height: options?.height || this.metadata!.dimensions.height,
         timestamp: timestamps[i]
       });
-
-      // Report progress
-      if (this.options.onProgress) {
-        const progress = ((i + 1) / timestamps.length) * 50; // 0-50% for extraction
-        this.options.onProgress(progress);
-      }
     }
 
     return frames;
