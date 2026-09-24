@@ -46,5 +46,13 @@ export abstract class GIFExporter {
     // Convert 1-100 to 1-10 scale (10 is best quality)
     return Math.round((quality / 100) * 10);
   }
+
+  /**
+   * Get the palette size for each frame from the 1-100 quality setting
+   */
+  protected getMaxColors(): number {
+    const quality = this.options.gifQuality || 80;
+    return Math.min(256, Math.max(2, Math.round((quality / 100) * 256)));
+  }
 }
 

@@ -73,12 +73,20 @@ export class VideoProcessorNode extends VideoProcessor {
     const framesDir = path.join(this.tempDir, 'frames');
     nodeUtils.ensureDir(framesDir);
 
+    // Image sequences are encoded straight into the requested format;
+    // PDF and GIF export work from PNG frames
+    const isImageSequence = this.options.outputFormat === 'images';
+
     // Extract frames using ffmpeg
     const framePaths = await nodeUtils.extractFrames(
       this.videoPath,
       timestamps,
       framesDir,
-      options
+      {
+        ...options,
+        format: isImageSequence ? this.options.imageFormat : 'png',
+        quality: this.options.imageQuality
+      }
     );
 
     // Read frames into memory

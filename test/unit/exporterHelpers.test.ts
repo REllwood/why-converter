@@ -19,6 +19,10 @@ class TestGIFExporter extends GIFExporter {
   public quality() {
     return this.getQuality();
   }
+
+  public maxColors() {
+    return this.getMaxColors();
+  }
 }
 
 class TestImageExporter extends ImageExporter {
@@ -54,6 +58,12 @@ describe('GIFExporter helpers', () => {
   it('maps 1-100 quality onto a 1-10 scale', () => {
     expect(gifExporter({ gifQuality: 100 }).quality()).toBe(10);
     expect(gifExporter({ gifQuality: 80 }).quality()).toBe(8);
+  });
+
+  it('maps 1-100 quality onto a palette of 2-256 colours', () => {
+    expect(gifExporter({ gifQuality: 100 }).maxColors()).toBe(256);
+    expect(gifExporter({ gifQuality: 50 }).maxColors()).toBe(128);
+    expect(gifExporter({ gifQuality: 1 }).maxColors()).toBe(3);
   });
 });
 

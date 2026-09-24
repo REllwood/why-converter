@@ -41,7 +41,6 @@ module.exports = {
   externals: {
     'fluent-ffmpeg': 'fluent-ffmpeg',
     'ffmpeg-static': 'ffmpeg-static',
-    'canvas': 'canvas',
     'pdfkit': 'pdfkit'
   },
   target: 'web'
