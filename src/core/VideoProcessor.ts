@@ -31,13 +31,6 @@ export abstract class VideoProcessor {
   abstract cleanup(): Promise<void>;
 
   /**
-   * Get video metadata
-   */
-  public getMetadata(): VideoMetadata | null {
-    return this.metadata;
-  }
-
-  /**
    * Calculate dimensions maintaining aspect ratio
    */
   protected calculateDimensions(

@@ -6,6 +6,8 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, 'dist/browser'),
     filename: 'index.js',
+    // Keep everything in index.js so a single script tag or file is enough
+    asyncChunks: false,
     library: {
       name: 'WhyConverter',
       type: 'umd',
@@ -15,13 +17,12 @@ module.exports = {
   },
   resolve: {
     extensions: ['.ts', '.js'],
-    fallback: {
-      'fs': false,
-      'path': false,
-      'stream': false,
-      'util': false,
-      'buffer': false,
-      'process': false
+    alias: {
+      // jsPDF loads these lazily for HTML and SVG rendering, which this library
+      // never uses; without them the bundle is one file instead of four
+      html2canvas: false,
+      dompurify: false,
+      canvg: false
     }
   },
   module: {
@@ -38,11 +39,9 @@ module.exports = {
       }
     ]
   },
-  externals: {
-    'fluent-ffmpeg': 'fluent-ffmpeg',
-    'ffmpeg-static': 'ffmpeg-static',
-    'pdfkit': 'pdfkit'
+  performance: {
+    // The bundle is a library whose size is mostly jsPDF, not an app entry point
+    hints: false
   },
   target: 'web'
 };
-

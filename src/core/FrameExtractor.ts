@@ -135,13 +135,6 @@ export class FrameExtractor {
   }
 
   /**
-   * Get total number of frames that will be extracted
-   */
-  public getFrameCount(): number {
-    return this.getFrameTimestamps().length;
-  }
-
-  /**
    * Create a FrameExtractor from user options
    */
   public static create(

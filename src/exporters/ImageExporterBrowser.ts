@@ -35,8 +35,8 @@ export class ImageExporterBrowser extends ImageExporter {
       try {
         let blob = frame.data;
 
-        // Convert format if needed
-        if (format !== 'png' || quality !== 100) {
+        // Frames are already PNGs at the output size, so only other formats need converting
+        if (format !== 'png') {
           blob = await this.convertFrameFormat(frame.data, frame.width, frame.height, format, quality);
         }
 
