@@ -113,6 +113,16 @@ export function parseFrameRate(rate: string | undefined): number | undefined {
 }
 
 /**
+ * Rotation of a video stream in degrees. Newer ffmpeg reports it as display
+ * matrix side data (which fluent-ffmpeg flattens to `rotation`), older
+ * versions as a `rotate` tag.
+ */
+export function videoRotation(stream: { rotation?: unknown; tags?: { rotate?: unknown } }): number {
+  const degrees = Number(stream.rotation ?? stream.tags?.rotate ?? 0);
+  return Number.isFinite(degrees) ? degrees : 0;
+}
+
+/**
  * Get video metadata using ffmpeg
  */
 export function getVideoMetadata(videoPath: string): Promise<{
@@ -139,10 +149,16 @@ export function getVideoMetadata(videoPath: string): Promise<{
       // r_frame_rate is only the timebase; fall back to 30 if neither is usable
       const fps = parseFrameRate(videoStream.avg_frame_rate) ?? parseFrameRate(videoStream.r_frame_rate) ?? 30;
 
+      // Phone videos are often stored sideways with a rotation flag. ffmpeg turns
+      // frames upright when decoding, so report the dimensions as displayed.
+      const storedWidth = videoStream.width || 0;
+      const storedHeight = videoStream.height || 0;
+      const quarterTurn = Math.abs(videoRotation(videoStream)) % 180 === 90;
+
       resolve({
         duration: positiveNumber(metadata.format.duration) ?? positiveNumber(videoStream.duration) ?? 0,
-        width: videoStream.width || 0,
-        height: videoStream.height || 0,
+        width: quarterTurn ? storedHeight : storedWidth,
+        height: quarterTurn ? storedWidth : storedHeight,
         fps,
         format: metadata.format.format_name || 'unknown'
       });
