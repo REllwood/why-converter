@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 import { PDFExporter } from './PDFExporter';
 import { ConversionOptions, VideoMetadata } from '../core/types';
+import { withContext } from '../core/errors';
 
 /**
  * Node.js implementation of PDF exporter using PDFKit
@@ -88,7 +89,7 @@ export class PDFExporterNode extends PDFExporter {
               );
           }
         } catch (error) {
-          console.error(`Failed to add frame ${i + j} to PDF:`, error);
+          throw withContext(`Failed to add frame ${i + j} to PDF`, error);
         }
       }
 

@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { PDFExporter } from './PDFExporter';
 import { ConversionOptions, VideoMetadata } from '../core/types';
+import { withContext } from '../core/errors';
 import * as browserUtils from '../utils/browser';
 
 /**
@@ -58,9 +59,6 @@ export class PDFExporterBrowser extends PDFExporter {
           margin
         );
 
-        // Convert blob to base64
-        const base64 = await browserUtils.blobToBase64(frame.data);
-
         // Fit image within bounds
         const fit = this.fitImageInBounds(
           frame.width,
@@ -70,6 +68,9 @@ export class PDFExporterBrowser extends PDFExporter {
         );
 
         try {
+          // Convert blob to base64
+          const base64 = await browserUtils.blobToBase64(frame.data);
+
           doc.addImage(
             base64,
             'PNG',
@@ -91,7 +92,7 @@ export class PDFExporterBrowser extends PDFExporter {
             );
           }
         } catch (error) {
-          console.error(`Failed to add frame ${i + j} to PDF:`, error);
+          throw withContext(`Failed to add frame ${i + j} to PDF`, error);
         }
       }
 
