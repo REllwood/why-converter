@@ -74,12 +74,10 @@ export function describeFfmpegError(error: Error, binary: 'ffmpeg' | 'ffprobe'):
 }
 
 /**
- * Create a temporary directory for frame extraction
+ * Create a uniquely named temporary directory for frame extraction
  */
 export function createTempDir(): string {
-  const tempDir = path.join(os.tmpdir(), `video-converter-${Date.now()}`);
-  fs.mkdirSync(tempDir, { recursive: true });
-  return tempDir;
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'why-converter-'));
 }
 
 /**
