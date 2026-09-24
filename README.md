@@ -95,7 +95,7 @@ Main function to convert videos.
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `outputFormat` | `'pdf' \| 'gif' \| 'images'` | `'pdf'` | Output format |
-| `outputPath` | `string` | - | Node.js only. File to write for PDF/GIF (the data is also returned as `buffer`), or directory for images (a temporary directory is used if omitted) |
+| `outputPath` | `string` | - | Node.js only. For PDF/GIF, the file to write (an existing directory, or a path ending in `/`, gets `output.pdf`/`output.gif` inside it); the data is also returned as `buffer`. For images, the directory to write into (a temporary directory is used if omitted). Missing directories are created |
 
 #### PDF Options
 
