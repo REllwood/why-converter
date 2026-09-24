@@ -21,6 +21,9 @@ export class VideoProcessorNode extends VideoProcessor {
   async loadVideo(input: VideoInput): Promise<VideoMetadata> {
     // Handle different input types
     if (typeof input === 'string') {
+      if (!nodeUtils.isFile(input)) {
+        throw new Error(`Video file not found: ${input}`);
+      }
       this.videoPath = input;
       this.isTemporaryFile = false;
     } else if (Buffer.isBuffer(input)) {
