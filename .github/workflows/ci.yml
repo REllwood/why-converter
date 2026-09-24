@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # Also downloads the ffmpeg and ffprobe binaries the tests use
+      - run: npm install
+
+      - name: Type check
+        run: |
+          npx tsc -p tsconfig.node.json --noEmit
+          npx tsc -p tsconfig.browser.json --noEmit
+          npx tsc -p tsconfig.test.json
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Build and check the package entry points
+        run: npm run build && node test/package/smoke.mjs
+
+      # arethetypeswrong needs Node 20 or later
+      - name: Check the published types
+        if: matrix.node != 18
+        run: npx attw --pack .
+
+  browser:
+    name: Browser (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm install
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npm run test:browser
