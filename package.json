@@ -59,7 +59,15 @@
     "why",
     "meme"
   ],
-  "author": "",
+  "author": "Rhys E",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/REllwood/why-converter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/REllwood/why-converter/issues"
+  },
+  "homepage": "https://github.com/REllwood/why-converter#readme",
   "license": "MIT",
   "dependencies": {
     "fluent-ffmpeg": "^2.1.2",
@@ -89,6 +97,6 @@
     "ffmpeg-static": "^5.2.0"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18"
   }
 }

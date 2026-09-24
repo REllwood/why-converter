@@ -56,7 +56,11 @@ export interface ConversionOptions {
   width?: number;                 // Output width in pixels
   height?: number;                // Output height in pixels
   maintainAspectRatio?: boolean;  // Maintain aspect ratio when resizing
-  compression?: number;           // 0-100, compression level
+  /**
+   * @deprecated Has never had any effect and will be removed in a future major
+   * version. Use gifQuality or imageQuality instead.
+   */
+  compression?: number;
   
   // Callbacks
   onProgress?: (progress: number) => void;

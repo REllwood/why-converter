@@ -225,24 +225,6 @@ export async function extractFrame(
 }
 
 /**
- * Extract multiple frames from video
- */
-export async function extractFrames(
-  video: HTMLVideoElement,
-  timestamps: number[],
-  options: { width?: number; height?: number } = {}
-): Promise<Array<{ data: Blob; width: number; height: number; timestamp: number }>> {
-  const frames: Array<{ data: Blob; width: number; height: number; timestamp: number }> = [];
-
-  for (const timestamp of timestamps) {
-    const frame = await extractFrame(video, timestamp, options);
-    frames.push({ ...frame, timestamp });
-  }
-
-  return frames;
-}
-
-/**
  * Decode an image Blob so it can be drawn onto a canvas
  */
 export function blobToImage(blob: Blob): Promise<CanvasImageSource> {
@@ -266,57 +248,7 @@ export function blobToImage(blob: Blob): Promise<CanvasImageSource> {
 }
 
 /**
- * Convert blob to base64 data URL
- */
-export function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-      } else {
-        reject(new Error('Failed to convert blob to base64'));
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-/**
- * Convert blob to array buffer
- */
-export function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (reader.result instanceof ArrayBuffer) {
-        resolve(reader.result);
-      } else {
-        reject(new Error('Failed to convert blob to array buffer'));
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(blob);
-  });
-}
-
-/**
- * Download file in browser
- */
-export function downloadFile(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-/**
- * Create a canvas from image data
+ * Create a canvas of the given size
  */
 export function createCanvas(width: number, height: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
@@ -343,12 +275,12 @@ export function checkBrowserSupport(): { supported: boolean; missing: string[] }
     missing.push('HTMLCanvasElement');
   }
 
-  if (!window.Blob) {
-    missing.push('Blob');
+  if (!window.Blob || typeof Blob.prototype.arrayBuffer !== 'function') {
+    missing.push('Blob.arrayBuffer');
   }
 
-  if (!window.FileReader) {
-    missing.push('FileReader');
+  if (!window.URL || typeof URL.createObjectURL !== 'function') {
+    missing.push('URL.createObjectURL');
   }
 
   return {

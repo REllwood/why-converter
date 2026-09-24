@@ -9,9 +9,9 @@ A powerful, universal JavaScript library for converting videos to PDF, GIF, or i
 - **Multiple Output Formats**: PDF, GIF, or image sequences (PNG, JPEG, WebP)
 - **Flexible Frame Extraction**: Extract by frame count, frame interval, or time interval
 - **PDF Layouts**: Customise frames per page, page size, and orientation
-- **Quality Control**: Adjust compression, dimensions, and quality settings
+- **Quality Control**: Adjust dimensions and quality settings
 - **Universal**: Works in both Node.js and browser environments
-- **Zero Config**: Sensible defaults with extensive customization options
+- **Zero Config**: Sensible defaults with extensive customisation options
 - **Progress Tracking**: Monitor conversion progress with callbacks
 - **Format Support**: MP4, WebM, MOV, AVI, MKV (Node.js) | MP4, WebM, OGG (Browser)
 
@@ -73,7 +73,7 @@ const result = await convertVideo(fileInput.files[0], { outputFormat: 'pdf' });
 
 <script>
   const fileInput = document.querySelector('input[type="file"]');
-  
+
   fileInput.addEventListener('change', async (e) => {
     const result = await WhyConverter(e.target.files[0], {
       extractionMode: 'frames',
@@ -81,7 +81,7 @@ const result = await convertVideo(fileInput.files[0], { outputFormat: 'pdf' });
       outputFormat: 'pdf',
       onProgress: (progress) => console.log(`${progress}%`)
     });
-    
+
     // Download the PDF
     const url = URL.createObjectURL(result.blob);
     const a = document.createElement('a');
@@ -101,7 +101,8 @@ Main function to convert videos.
 #### Parameters
 
 - **input**: `string | File | Blob | Buffer`
-  - File path (Node.js) or File/Blob object (Browser)
+  - Node.js: a file path or a `Buffer`
+  - Browser: a `File`, a `Blob` or a video URL
 
 - **options** (optional): `ConversionOptions` object with the following properties. Every option is checked before any work starts; invalid values make the conversion fail with `success: false` and an `error` listing every problem.
 
@@ -137,7 +138,7 @@ Browsers don't expose a video's frame rate, so in the browser `'interval'` mode 
 |--------|------|---------|-------------|
 | `gifFps` | `number` | `10` | Frames per second |
 | `gifQuality` | `number` | `80` | Quality (1-100) |
-| `gifRepeat` | `number` | `0` | Loop count (0 = infinite) |
+| `gifRepeat` | `number` | `0` | `0` loops forever, `-1` plays once, `n` repeats n times |
 
 #### Image Sequence Options
 
@@ -154,7 +155,8 @@ Browsers don't expose a video's frame rate, so in the browser `'interval'` mode 
 | `width` | `number` | - | Output width in pixels |
 | `height` | `number` | - | Output height in pixels |
 | `maintainAspectRatio` | `boolean` | `true` | Maintain aspect ratio |
-| `compression` | `number` | `80` | Compression level (0-100) |
+
+`compression` is deprecated: it never had any effect. Use `gifQuality` or `imageQuality` instead.
 
 #### Callbacks
 
@@ -180,8 +182,10 @@ Browsers don't expose a video's frame rate, so in the browser `'interval'` mode 
   metadata: {
     totalFrames: number;
     extractedFrames: number;
-    duration: number;
-    dimensions: { width: number; height: number };
+    duration: number;         // Seconds
+    dimensions: { width: number; height: number };  // As displayed (rotation applied)
+    fps?: number;
+    format?: string;          // Container format (Node.js)
   };
 }
 ```
@@ -246,7 +250,7 @@ const result = await convertVideo('./video.mp4', {
 ```javascript
 const progressBar = document.getElementById('progress');
 
-const result = await VideoFrameConverter(videoFile, {
+const result = await WhyConverter(videoFile, {
   extractionMode: 'frames',
   framesCount: 20,
   outputFormat: 'pdf',
@@ -289,7 +293,7 @@ if (result.success) {
 ## Requirements
 
 ### Node.js
-- Node.js >= 14.0.0
+- Node.js >= 18
 - `ffmpeg` and `ffprobe` (installed automatically via optional dependencies, or from your system)
 
 ### Browser
@@ -297,6 +301,7 @@ if (result.success) {
   - HTML5 Video API
   - Canvas API
   - Blob/File API
+  - `requestVideoFrameCallback` for measuring frame rates in `'interval'` mode (30 fps is assumed without it)
   - Supports: Chrome, Firefox, Safari, Edge
 
 ## Advanced Configuration
@@ -384,6 +389,18 @@ const options: ConversionOptions = {
 const result: ConversionResult = await convertVideo('./video.mp4', options);
 ```
 
+## Development
+
+```bash
+npm install
+npm test                 # Unit and Node.js integration tests (uses the bundled ffmpeg)
+npm run test:browser     # Builds the browser bundle and tests it in Chromium with Playwright
+npm run test:package     # Builds the package and checks its entry points and types
+npm run build            # Builds dist/node and dist/browser
+```
+
+The browser tests need Playwright's Chromium: `npx playwright install chromium`.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -402,9 +419,9 @@ MIT License - see LICENSE file for details
 
 ## 🔗 Links
 
-- [GitHub Repository](https://github.com/yourusername/why-converter)
+- [GitHub Repository](https://github.com/REllwood/why-converter)
 - [NPM Package](https://www.npmjs.com/package/why-converter)
-- [Issue Tracker](https://github.com/yourusername/why-converter/issues)
+- [Issue Tracker](https://github.com/REllwood/why-converter/issues)
 
 ---
 

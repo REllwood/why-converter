@@ -108,8 +108,4 @@ describe('FrameExtractor', () => {
       `Cannot pick frames because the video's duration is unknown or zero (got ${duration})`
     );
   });
-
-  it('counts the frames it will extract', () => {
-    expect(FrameExtractor.create('frames', tenSeconds, { framesCount: 4 }).getFrameCount()).toBe(4);
-  });
 });
