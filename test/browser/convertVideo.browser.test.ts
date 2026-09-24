@@ -33,9 +33,17 @@ describe('convertVideo (browser)', () => {
     expect(result.metadata.dimensions).toEqual({ width: 320, height: 240 });
     expect(result.metadata.extractedFrames).toBe(4);
 
-    const pdf = Buffer.from(result.blob!.bytes);
+    const pdf = Buffer.from(result.blob!.base64, 'base64');
     expect(pdf.toString('latin1', 0, 5)).toBe('%PDF-');
     expect(pdfPageCount(pdf)).toBe(2);
+  });
+
+  it('compresses the frames in a PDF', async () => {
+    const result = await convertInBrowser(harness.page, '/input.webm', { framesCount: 4, outputFormat: 'pdf' });
+    const pdf = Buffer.from(result.blob!.base64, 'base64');
+
+    // Four uncompressed 320x240 RGB frames alone would be 921,600 bytes
+    expect(pdf.length).toBeLessThan(250_000);
   });
 
   it('converts to an animated GIF without loading anything from another site', async () => {
@@ -49,7 +57,7 @@ describe('convertVideo (browser)', () => {
     expect(result.error).toBeUndefined();
     expect(result.blob!.type).toBe('image/gif');
 
-    const gif = readGif(Buffer.from(result.blob!.bytes));
+    const gif = readGif(Buffer.from(result.blob!.base64, 'base64'));
     expect(gif.frames).toBe(5);
     expect([gif.width, gif.height]).toEqual([160, 120]);
     expect(gif.delays).toEqual([5, 5, 5, 5, 5]);
@@ -75,7 +83,7 @@ describe('convertVideo (browser)', () => {
     ]);
     for (const file of result.files!) {
       expect(file.type).toBe('image/jpeg');
-      expect(imageType(Buffer.from(file.bytes))).toBe('jpeg');
+      expect(imageType(Buffer.from(file.base64, 'base64'))).toBe('jpeg');
     }
   });
 

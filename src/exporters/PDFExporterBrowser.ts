@@ -2,7 +2,6 @@ import { jsPDF } from 'jspdf';
 import { PDFExporter } from './PDFExporter';
 import { ConversionOptions, VideoMetadata } from '../core/types';
 import { withContext } from '../core/errors';
-import * as browserUtils from '../utils/browser';
 
 /**
  * Browser implementation of PDF exporter using jsPDF
@@ -27,7 +26,8 @@ export class PDFExporterBrowser extends PDFExporter {
     const doc = new jsPDF({
       orientation: layout === 'landscape' ? 'landscape' : 'portrait',
       unit: 'pt',
-      format: [pageDimensions.width, pageDimensions.height]
+      format: [pageDimensions.width, pageDimensions.height],
+      compress: true
     });
 
     // Process frames
@@ -68,16 +68,19 @@ export class PDFExporterBrowser extends PDFExporter {
         );
 
         try {
-          // Convert blob to base64
-          const base64 = await browserUtils.blobToBase64(frame.data);
+          const png = new Uint8Array(await frame.data.arrayBuffer());
 
+          // jsPDF stores images uncompressed unless asked, which made PDFs
+          // around 20x larger than the PNG frames; FAST costs little extra time
           doc.addImage(
-            base64,
+            png,
             'PNG',
             position.x + fit.x,
             position.y + fit.y,
             fit.width,
-            fit.height
+            fit.height,
+            undefined,
+            'FAST'
           );
 
           // Optionally add timestamp
