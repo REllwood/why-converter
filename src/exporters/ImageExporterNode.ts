@@ -27,17 +27,17 @@ export class ImageExporterNode extends ImageExporter {
 
     const format = this.getImageFormat();
 
-    // Determine output directory
+    // outputPath is the directory to write into, created if missing;
+    // without one, write to a new temporary directory
     let outputDir: string;
     if (this.options.outputPath) {
-      if (nodeUtils.isDirectory(this.options.outputPath)) {
-        outputDir = this.options.outputPath;
-      } else {
-        // Use parent directory
-        outputDir = path.dirname(this.options.outputPath);
+      if (nodeUtils.isFile(this.options.outputPath)) {
+        throw new Error(
+          `outputPath must be a directory for image sequences, but ${this.options.outputPath} is a file`
+        );
       }
+      outputDir = this.options.outputPath;
     } else {
-      // Create temp directory
       outputDir = nodeUtils.createTempDir();
     }
 

@@ -9,7 +9,6 @@ import { PDFExporterNode } from './exporters/PDFExporterNode';
 import { GIFExporterNode } from './exporters/GIFExporterNode';
 import { ImageExporterNode } from './exporters/ImageExporterNode';
 import * as nodeUtils from './utils/node';
-import * as path from 'path';
 
 /**
  * Main function to convert video to various formats (Node.js version)
@@ -47,10 +46,7 @@ async function processVideo(
 
         // Save to file if outputPath specified
         if (options.outputPath) {
-          outputPath = options.outputPath;
-          if (nodeUtils.isDirectory(outputPath)) {
-            outputPath = path.join(outputPath, 'output.pdf');
-          }
+          outputPath = nodeUtils.prepareOutputFile(options.outputPath, 'output.pdf');
           await nodeUtils.writeBufferToFile(outputPath, buffer);
         }
         break;
@@ -62,10 +58,7 @@ async function processVideo(
 
         // Save to file if outputPath specified
         if (options.outputPath) {
-          outputPath = options.outputPath;
-          if (nodeUtils.isDirectory(outputPath)) {
-            outputPath = path.join(outputPath, 'output.gif');
-          }
+          outputPath = nodeUtils.prepareOutputFile(options.outputPath, 'output.gif');
           await nodeUtils.writeBufferToFile(outputPath, buffer);
         }
         break;

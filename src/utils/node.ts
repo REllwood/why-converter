@@ -286,6 +286,17 @@ export function writeBufferToFile(filePath: string, buffer: Buffer): Promise<voi
 }
 
 /**
+ * Work out the file to write for a single-file output and create its directory.
+ * An existing directory, or a path ending in a separator, gets defaultName inside it.
+ */
+export function prepareOutputFile(outputPath: string, defaultName: string): string {
+  const isDirectoryPath = isDirectory(outputPath) || /[\\/]$/.test(outputPath);
+  const filePath = isDirectoryPath ? path.join(outputPath, defaultName) : outputPath;
+  ensureDir(path.dirname(filePath));
+  return filePath;
+}
+
+/**
  * Ensure directory exists
  */
 export function ensureDir(dirPath: string): void {
