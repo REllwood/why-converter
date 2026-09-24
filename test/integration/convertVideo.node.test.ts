@@ -90,6 +90,38 @@ describe('convertVideo (Node)', () => {
     }
   });
 
+  it('returns the PDF data when no outputPath is given', async () => {
+    const result = await convertVideo(video, { framesCount: 2, outputFormat: 'pdf' });
+
+    expect(result.success).toBe(true);
+    expect(result.outputPath).toBeUndefined();
+    expect(result.buffer?.toString('latin1', 0, 5)).toBe('%PDF-');
+  });
+
+  it('returns the GIF data, and the same bytes it writes to disk', async () => {
+    const outputPath = path.join(dir, 'returned.gif');
+    const result = await convertVideo(video, { framesCount: 3, outputFormat: 'gif', outputPath });
+
+    expect(result.success).toBe(true);
+    expect(readGif(result.buffer!).frames).toBe(3);
+    expect(fs.readFileSync(outputPath).equals(result.buffer!)).toBe(true);
+  });
+
+  it('lists the images it writes', async () => {
+    const result = await convertVideo(video, { framesCount: 3, outputFormat: 'images' });
+
+    try {
+      expect(result.success).toBe(true);
+      expect(result.filePaths).toHaveLength(3);
+      expect(result.filePaths!.map(file => path.dirname(file))).toEqual(Array(3).fill(result.outputPath));
+      for (const file of result.filePaths!) {
+        expect(imageType(fs.readFileSync(file))).toBe('png');
+      }
+    } finally {
+      if (result.outputPath) removeDir(result.outputPath);
+    }
+  });
+
   it('accepts a Buffer as input', async () => {
     const outputPath = path.join(dir, 'from-buffer.pdf');
     const result = await convertVideo(fs.readFileSync(video), {

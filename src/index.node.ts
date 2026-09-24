@@ -88,12 +88,14 @@ async function processVideo(
     const { frames, metadata } = await processor.process(input);
 
     let outputPath: string | undefined;
+    let buffer: Buffer | undefined;
+    let filePaths: string[] | undefined;
 
     // Export based on output format
     switch (options.outputFormat) {
       case 'pdf': {
         const exporter = new PDFExporterNode(options, metadata);
-        const pdfBuffer = await exporter.export(frames as any);
+        buffer = await exporter.export(frames as any);
 
         // Save to file if outputPath specified
         if (options.outputPath) {
@@ -101,14 +103,14 @@ async function processVideo(
           if (nodeUtils.isDirectory(outputPath)) {
             outputPath = path.join(outputPath, 'output.pdf');
           }
-          await nodeUtils.writeBufferToFile(outputPath, pdfBuffer);
+          await nodeUtils.writeBufferToFile(outputPath, buffer);
         }
         break;
       }
 
       case 'gif': {
         const exporter = new GIFExporterNode(options, metadata);
-        const gifBuffer = await exporter.export(frames as any);
+        buffer = await exporter.export(frames as any);
 
         // Save to file if outputPath specified
         if (options.outputPath) {
@@ -116,7 +118,7 @@ async function processVideo(
           if (nodeUtils.isDirectory(outputPath)) {
             outputPath = path.join(outputPath, 'output.gif');
           }
-          await nodeUtils.writeBufferToFile(outputPath, gifBuffer);
+          await nodeUtils.writeBufferToFile(outputPath, buffer);
         }
         break;
       }
@@ -125,6 +127,7 @@ async function processVideo(
         const exporter = new ImageExporterNode(options, metadata);
         const imageResult = await exporter.export(frames as any);
         outputPath = imageResult.directory;
+        filePaths = imageResult.files;
         break;
       }
 
@@ -138,6 +141,8 @@ async function processVideo(
     return {
       success: true,
       outputPath,
+      buffer,
+      filePaths,
       metadata
     };
   } catch (error) {
