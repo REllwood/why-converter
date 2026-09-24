@@ -3,6 +3,39 @@
  */
 
 /**
+ * How long to wait for a seek before giving up
+ */
+const SEEK_TIMEOUT_MS = 10000;
+
+/**
+ * How long to wait for a video's metadata to load before giving up
+ */
+const LOAD_TIMEOUT_MS = 30000;
+
+/**
+ * Frame rates to snap measurements to when they are within 1%
+ */
+const COMMON_FRAME_RATES = [23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60, 90, 100, 119.88, 120];
+
+const MEDIA_ERROR_REASONS: Record<number, string> = {
+  1: 'loading was aborted',
+  2: 'a network error occurred',
+  3: 'the video could not be decoded',
+  4: 'the format or codec is not supported'
+};
+
+/**
+ * Describe a media element's error, e.g. " (the format or codec is not supported)"
+ */
+function describeMediaError(error: MediaError | null): string {
+  if (!error) {
+    return '';
+  }
+  const reason = MEDIA_ERROR_REASONS[error.code] || `media error ${error.code}`;
+  return ` (${reason}${error.message ? `: ${error.message}` : ''})`;
+}
+
+/**
  * Load video from various input types
  */
 export function loadVideo(input: string | File | Blob): Promise<HTMLVideoElement> {
@@ -10,31 +43,135 @@ export function loadVideo(input: string | File | Blob): Promise<HTMLVideoElement
     const video = document.createElement('video');
     video.crossOrigin = 'anonymous';
     video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
 
-    let url: string;
-    let shouldRevokeUrl = false;
+    const url = typeof input === 'string' ? input : URL.createObjectURL(input);
 
-    if (typeof input === 'string') {
-      url = input;
-    } else {
-      url = URL.createObjectURL(input);
-      shouldRevokeUrl = true;
-    }
-
-    video.onloadedmetadata = () => {
-      resolve(video);
-    };
-
-    video.onerror = () => {
-      if (shouldRevokeUrl) {
-        URL.revokeObjectURL(url);
+    const finish = (error?: Error) => {
+      clearTimeout(timer);
+      video.onloadedmetadata = null;
+      video.onerror = null;
+      if (error) {
+        if (typeof input !== 'string') {
+          URL.revokeObjectURL(url);
+        }
+        reject(error);
+      } else {
+        resolve(video);
       }
-      reject(new Error('Failed to load video'));
     };
+
+    const timer = setTimeout(
+      () => finish(new Error(`Timed out loading the video after ${LOAD_TIMEOUT_MS / 1000}s`)),
+      LOAD_TIMEOUT_MS
+    );
+
+    video.onloadedmetadata = () => finish();
+    video.onerror = () =>
+      finish(
+        new Error(
+          `The browser could not load this video${describeMediaError(video.error)}. ` +
+            'MP4 (H.264) and WebM are the most widely supported formats.'
+        )
+      );
 
     video.src = url;
     video.load();
   });
+}
+
+/**
+ * Seek a video and wait until the frame at that time is ready to draw
+ */
+export function seekTo(video: HTMLVideoElement, time: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const finish = (error?: Error) => {
+      clearTimeout(timer);
+      video.removeEventListener('seeked', onSeeked);
+      video.removeEventListener('error', onError);
+      if (error) {
+        reject(error);
+      } else {
+        resolve();
+      }
+    };
+    const onSeeked = () => finish();
+    const onError = () => finish(new Error(`Failed seeking to ${time}s${describeMediaError(video.error)}`));
+    const timer = setTimeout(
+      () => finish(new Error(`Timed out seeking to ${time}s after ${SEEK_TIMEOUT_MS / 1000}s`)),
+      SEEK_TIMEOUT_MS
+    );
+
+    video.addEventListener('seeked', onSeeked);
+    video.addEventListener('error', onError);
+    video.currentTime = time;
+  });
+}
+
+/**
+ * Make sure the video's duration is known. Recordings that don't store it
+ * (from MediaRecorder or live streams, for example) report Infinity until
+ * the browser has reached the end, so seek past the end once.
+ */
+export async function ensureDuration(video: HTMLVideoElement): Promise<void> {
+  if (Number.isFinite(video.duration)) {
+    return;
+  }
+
+  await seekTo(video, Number.MAX_SAFE_INTEGER);
+
+  if (!Number.isFinite(video.duration) || video.duration <= 0) {
+    throw new Error("Could not determine the video's duration");
+  }
+}
+
+/**
+ * Measure a video's frame rate by briefly playing it (muted) and timing the
+ * frames it presents. Returns undefined if the browser can't report frames.
+ */
+export async function estimateFrameRate(video: HTMLVideoElement): Promise<number | undefined> {
+  if (typeof video.requestVideoFrameCallback !== 'function') {
+    return undefined;
+  }
+
+  const mediaTimes: number[] = [];
+
+  try {
+    await new Promise<void>(resolve => {
+      const timer = setTimeout(resolve, 2000);
+      const onFrame = (_now: number, metadata: VideoFrameCallbackMetadata) => {
+        mediaTimes.push(metadata.mediaTime);
+        if (mediaTimes.length >= 12) {
+          clearTimeout(timer);
+          resolve();
+        } else {
+          video.requestVideoFrameCallback(onFrame);
+        }
+      };
+      video.requestVideoFrameCallback(onFrame);
+      video.play().catch(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  } finally {
+    video.pause();
+  }
+
+  // Playback can skip frames but never shows one twice, so the smallest gaps
+  // between presented frames are single frames. Average those to smooth out
+  // timestamps rounded to the millisecond.
+  const gaps = mediaTimes.slice(1).map((time, i) => time - mediaTimes[i]).filter(gap => gap > 0);
+  if (gaps.length < 3) {
+    return undefined;
+  }
+  const shortest = Math.min(...gaps);
+  const singleFrameGaps = gaps.filter(gap => gap < shortest * 1.5);
+  const fps = singleFrameGaps.length / singleFrameGaps.reduce((sum, gap) => sum + gap, 0);
+
+  const common = COMMON_FRAME_RATES.find(rate => Math.abs(rate - fps) / rate < 0.01);
+  return common ?? Math.round(fps * 1000) / 1000;
 }
 
 /**
@@ -44,15 +181,11 @@ export function getVideoMetadata(video: HTMLVideoElement): {
   duration: number;
   width: number;
   height: number;
-  fps: number;
 } {
-  // FPS is hard to get in browser, we'll use a default
-  // Could be improved by analyzing frame timestamps
   return {
     duration: video.duration,
     width: video.videoWidth,
-    height: video.videoHeight,
-    fps: 30 // Default assumption for browser
+    height: video.videoHeight
   };
 }
 
@@ -64,51 +197,31 @@ export async function extractFrame(
   timestamp: number,
   options: { width?: number; height?: number } = {}
 ): Promise<{ data: Blob; width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
 
-    if (!ctx) {
-      reject(new Error('Failed to get canvas context'));
-      return;
-    }
+  if (!ctx) {
+    throw new Error('Failed to get canvas context');
+  }
 
-    // Set canvas dimensions
-    const targetWidth = options.width || video.videoWidth;
-    const targetHeight = options.height || video.videoHeight;
-    
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
+  // Set canvas dimensions
+  const targetWidth = options.width || video.videoWidth;
+  const targetHeight = options.height || video.videoHeight;
 
-    // Seek to timestamp
-    video.currentTime = timestamp;
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
 
-    const onSeeked = () => {
-      try {
-      // Draw video frame to canvas
-      ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+  await seekTo(video, timestamp);
 
-      // Convert to blob
-      canvas.toBlob((blob: Blob | null) => {
-        if (blob) {
-          resolve({
-            data: blob,
-            width: targetWidth,
-            height: targetHeight
-          });
-        } else {
-          reject(new Error('Failed to create blob from canvas'));
-        }
-      }, 'image/png');
-      } catch (error) {
-        reject(error);
-      } finally {
-        video.removeEventListener('seeked', onSeeked);
-      }
-    };
+  // Draw video frame to canvas
+  ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
 
-    video.addEventListener('seeked', onSeeked);
-  });
+  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) {
+    throw new Error('Failed to create blob from canvas');
+  }
+
+  return { data: blob, width: targetWidth, height: targetHeight };
 }
 
 /**
